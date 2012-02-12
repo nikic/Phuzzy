@@ -60,7 +60,7 @@ $boolFalse = false;
 EOC;
 
 // Initial type variables
-$types = array(
+$initVars = array(
     'int' => array(
         'intMax', 'intMaxPre', 'intMinPre', 'intMin',
         'intZero', 'intPlusOne', 'intMinusOne',
@@ -125,67 +125,85 @@ $db = new InvokablePDO('sqlite:' . realpath('php_manual_en.sqlite'));
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 while (true) {
-
-while (true) {
-
-// start off with just initial code segment
-$code = $initCode . "\n\n";
-
-for ($i = 1; $i <= $n; ++$i) {
     while (true) {
-        $function = $functions[array_rand($functions)];
+        // start off with just initial code segment
+        $code = $initCode . "\n\n";
 
-        $args = array();
-        foreach ($db('SELECT type FROM params WHERE function_name = ?', $function) as $param) {
-            $type = $param['type'];
+        // and use initial variables
+        $vars = $initVars;
 
-            if ($type == 'mixed') {
-                $type = array_rand($types);
-            } elseif ($type == 'number') {
-                $type = mt_rand(0, 1) == 0 ? 'int' : 'float';
-            } elseif ($type == 'resource') {
-                if (preg_match('/^(ftp|socket|proc|sem|shm)_/', $function, $matches)) {
-                    $type = $matches[1] . '_resource';
+        for ($i = 1; $i <= $n; ++$i) {
+            while (true) {
+                $function = $functions[array_rand($functions)];
+
+                if (!$functionInfo = $db('SELECT return_type FROM functions WHERE name = ?', $function)->fetch()) {
+                    // unknown function, skip
+                    continue;
                 }
-            }
 
-            if (!isset($types[$type])) {
-                // don't know that type right now, choose another function
-                var_dump('Missing: ' . $type);
-                continue 2;
-            }
+                $args = array();
+                foreach ($db('SELECT type FROM params WHERE function_name = ?', $function) as $param) {
+                    $type = $param['type'];
 
-            $possibleVars = $types[$type];
-            $args[] = '$' . $possibleVars[array_rand($possibleVars)];
+                    if ($type == 'mixed') {
+                        $type = array_rand($vars);
+                    } elseif ($type == 'number') {
+                        $type = mt_rand(0, 1) == 0 ? 'int' : 'float';
+                    } elseif ($type == 'resource') {
+                        if (preg_match('/^(ftp|socket|proc|sem|shm)_/', $function, $matches)) {
+                            $type = $matches[1] . '_resource';
+                        }
+                    }
+
+                    if (!isset($vars[$type])) {
+                        // don't know that type right now, choose another function
+                        var_dump('Missing: ' . $type);
+                        continue 2;
+                    }
+
+                    $applicableVars = $vars[$type];
+                    $args[] = '$' . $applicableVars[array_rand($applicableVars)];
+                }
+
+                $returnType = $functionInfo['return_type'];
+                $returnVarName = $returnType . '_' . $function . '_' . $i;
+
+                $code .= "\necho \"Running $i/$n ($function).\\n\";"
+                      .  "\n$$returnVarName = $function(" . implode(', ', $args) . ");";
+
+                $vars[$returnType][] = $returnVarName;
+
+                break;
+            }
         }
 
-        $code .= "\necho \"Running $i/$n ($function).\\n\";"
-              .  "\n$function(" . implode(', ', $args) . ");";
+        file_put_contents('generated.php', $code);
 
-        break;
+        $output = array();
+        exec('php -f generated.php 1>stdout 2>stderr', $output, $return);
+
+        $stderr = file_get_contents('stderr');
+
+        echo $stderr;
+        echo 'Return: ', $return, "\n";
+
+        if ($return == 139) {
+            $type = 'segfault';
+            break;
+        } elseif ($return != 0 && $return != 255) {
+            $type = 'unsuccessful';
+            break;
+        } elseif (preg_match('(memory leak)', $stderr)) {
+            $type = 'memory_leak';
+            break;
+        } elseif (preg_match('(inconsistent)', $stderr)) {
+            $type = 'inconsistent';
+            break;
+        } elseif (preg_match('(zero-terminated)', $stderr)) {
+            $type = 'zero_terminated';
+            break;
+        }
     }
-}
 
-file_put_contents('generated.php', $code);
-
-$output = array();
-exec('php -f generated.php 1>stdout 2>stderr', $output, $return);
-
-$stderr = file_get_contents('stderr');
-
-echo $stderr;
-echo 'Return: ', $return, "\n";
-
-if ($return != 0 && $return != 255) {
-    break;
-}
-
-if (preg_match('(memory leak|inconsistent|zero-terminated)', $stderr)) {
-    break;
-}
-
-}
-
-copy('generated.php', 'investigate_' . uniqid() . '.php');
-
+    copy('generated.php', 'investigate_' . uniqid() . '_' . $type . '.php');
 }
