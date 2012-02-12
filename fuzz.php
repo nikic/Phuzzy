@@ -2,6 +2,8 @@
 
 error_reporting(E_ALL);
 
+/// CONFIGURATION
+
 // Code to prepend before generated code
 $initCode = <<<'EOC'
 <?php
@@ -105,13 +107,12 @@ $functions = array_diff($functions, array(
     'dns_get_record',
     // we don't want anybody to get killed...
     'posix_kill', 'pcntl_alarm',
-    // we also want to find memory leaks, so don't generate the "explicit"
-    // leaking function
-    'leak',
     // we already know that this function leaks, so disable it until the leak
     // is fixed
     'readline_callback_handler_install',
 ));
+
+/// SCRIPT
 
 class InvokablePDO extends PDO {
     public function __invoke($query) {
@@ -119,6 +120,16 @@ class InvokablePDO extends PDO {
         $stmt->execute(array_slice(func_get_args(), 1));
         return $stmt;
     }
+}
+
+function normalizeType($type, $function) {
+    if ($type == 'resource'
+        && preg_match('/^(ftp|socket|proc|sem|shm|xml)_/', $function, $matches)
+    ) {
+        return $matches[1] . '_resource';
+    }
+
+    return $type;
 }
 
 $db = new InvokablePDO('sqlite:' . realpath('php_manual_en.sqlite'));
@@ -149,11 +160,9 @@ while (true) {
                         $type = array_rand($vars);
                     } elseif ($type == 'number') {
                         $type = mt_rand(0, 1) == 0 ? 'int' : 'float';
-                    } elseif ($type == 'resource') {
-                        if (preg_match('/^(ftp|socket|proc|sem|shm)_/', $function, $matches)) {
-                            $type = $matches[1] . '_resource';
-                        }
                     }
+
+                    $type = normalizeType($type, $function);
 
                     if (!isset($vars[$type])) {
                         // don't know that type right now, choose another function
@@ -165,7 +174,7 @@ while (true) {
                     $args[] = '$' . $applicableVars[array_rand($applicableVars)];
                 }
 
-                $returnType = $functionInfo['return_type'];
+                $returnType = normalizeType($functionInfo['return_type'], $function);
                 $returnVarName = $returnType . '_' . $function . '_' . $i;
 
                 $code .= "\necho \"Running $i/$n ($function).\\n\";"
