@@ -5,6 +5,9 @@ error_reporting(E_ALL);
 /// CONFIGURATION
 
 // Code to prepend before generated code
+// {{ expression }} are inline expressions which are evaluated and substituted
+// They are used to have all values generated statically in the inserted code
+// so everything stays reproducable
 $initCode = <<<'EOC'
 <?php
 
@@ -19,7 +22,7 @@ $intMin = -PHP_INT_MAX - 1;
 $intZero = 0;
 $intPlusOne = 1;
 $intMinusOne = -1;
-$intRandom = mt_rand($intMin, $intMax);
+$intRandom = {{ mt_rand(-PHP_INT_MAX - 1, PHP_INT_MAX) }};
 
 // various floats
 $floatPositiveInfinity = INF;
@@ -31,12 +34,12 @@ $floatPlusZero = 0.0;
 $floatMinusZero = -0.0;
 $floatPlusOne = 1.0;
 $floatMinusOne = -1.0;
-$floatRandomSmall = lcg_value();
-$floatRandomAny = (lcg_value() - 0.5) * 2 * $floatMax;
+$floatRandomSmall = {{ lcg_value() }};
+$floatRandomAny = {{ (lcg_value() - 0.5) * 2 * 1.7976931348623E+308 }};
 
 // various strings
 $stringEmpty = '';
-$stringLarge = str_repeat('*', mt_rand(0, 1024 * 1024));
+$stringLarge = str_repeat('*', {{ mt_rand(0, 1024 * 1024) }});
 $stringSpecial = "\xff\xfe\x00\x01\x02\x03\r\n\t";
 $stringNormal = 'abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -45,7 +48,7 @@ $stringObject = new StringifyableObject;
 
 // various arrays
 $arrayEmpty = array();
-$arrayLarge = array_fill(0, mt_rand(0, 1024 * 1024), '*');
+$arrayLarge = array_fill(0, {{ mt_rand(0, 1024 * 1024) }}, '*');
 $arrayStrange = array(-1 => -5, 100 => 17, 0 => 'a', 'a' => 0, 1 => 'b', 'b' => 1);
 
 // file resources
@@ -144,7 +147,14 @@ $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 while (true) {
     while (true) {
         // start off with just initial code segment
-        $code = $initCode . "\n\n";
+        // substitute {{ }} inline expressions
+        $code = preg_replace_callback(
+            '(\{\{(.*?)\}\})',
+            function ($matches) {
+                return eval('return ' . $matches[1] . ';');
+            },
+            $initCode
+        ) . "\n\n";
 
         // and use initial variables
         $vars = $initVars;
