@@ -63,12 +63,10 @@ EOC;
 
 // Initial type variables
 $initVars = array(
-    'int' => array(
+    'number' => array(
         'intMax', 'intMaxPre', 'intMinPre', 'intMin',
         'intZero', 'intPlusOne', 'intMinusOne',
         'intRandom',
-    ),
-    'float' => array(
         'floatPositiveInfinity', 'floatNegativeInfinity', 'floatNaN',
         'floatMax', 'floatMin',
         'floatPlusZero', 'floatMinusZero', 'floatPlusOne', 'floatMinusOne',
@@ -123,6 +121,14 @@ class InvokablePDO extends PDO {
 }
 
 function normalizeType($type, $function) {
+    // use a general number type instead of float/int (they are usually
+    // usable interchangably and we might catch some strange edge case
+    // bugs through this)
+    if ($type == 'float' || $type == 'int') {
+        return 'number';
+    }
+
+    // use specific resources
     if ($type == 'resource'
         && preg_match('/^(ftp|socket|proc|sem|shm|xml)_/', $function, $matches)
     ) {
@@ -158,8 +164,6 @@ while (true) {
 
                     if ($type == 'mixed') {
                         $type = array_rand($vars);
-                    } elseif ($type == 'number') {
-                        $type = mt_rand(0, 1) == 0 ? 'int' : 'float';
                     }
 
                     $type = normalizeType($type, $function);
