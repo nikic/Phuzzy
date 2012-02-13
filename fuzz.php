@@ -99,7 +99,7 @@ $functions = $functions["internal"];
 // banned functions
 $functions = array_diff($functions, array(
     // can take lots of time
-    'sleep', 'usleep', 'time_nanosleep',
+    'sleep', 'usleep', 'time_nanosleep', 'time_sleep_until',
     'pcntl_sigwaitinfo', 'pcntl_sigtimedwait',
     'readline',
     'dns_get_record',
@@ -130,7 +130,7 @@ function normalizeType($type, $function) {
 
     // use specific resources
     if ($type == 'resource'
-        && preg_match('/^(ftp|socket|proc|sem|shm|xml)_/', $function, $matches)
+        && preg_match('/^(ftp|socket|proc|sem|shm|xml|xmlwriter)_/', $function, $matches)
     ) {
         return $matches[1] . '_resource';
     }
