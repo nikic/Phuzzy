@@ -4,6 +4,17 @@ error_reporting(E_ALL);
 
 /// CONFIGURATION
 
+// working directory to use (generated scripts might put files in there)
+$cwd     = __DIR__ . '/cwd';
+
+// directory to put resulting generated scripts in
+$results = __DIR__ . '/results';
+
+// location of temporary files that will be generated
+$generatedFile = $cwd . '/generated.php';
+$stdoutFile    = $cwd . '/stdout';
+$stderrFile    = $cwd . '/stderr';
+
 // Code to prepend before generated code
 // {{ expression }} are inline expressions which are evaluated and substituted
 // They are used to have all values generated statically in the inserted code
@@ -11,8 +22,10 @@ error_reporting(E_ALL);
 $initCode = <<<'EOC'
 <?php
 
+error_reporting(E_ALL);
 set_time_limit(5);
 ini_set('memory_limit', '256M');
+chdir({{ "'" . $GLOBALS['cwd'] . "'" }});
 
 // various integers
 $intMax = PHP_INT_MAX;
@@ -104,10 +117,12 @@ $functions = array_diff($functions, array(
     // can take lots of time
     'sleep', 'usleep', 'time_nanosleep', 'time_sleep_until',
     'pcntl_sigwaitinfo', 'pcntl_sigtimedwait',
-    'readline',
+    'readline', 'readline_read_history',
     'dns_get_record',
     // we don't want anybody to get killed...
     'posix_kill', 'pcntl_alarm',
+    // not supported anymore as of PHP 5.4, will only throw a fatal error
+    'set_magic_quotes_runtime',
     // we already know that this function leaks, so disable it until the leak
     // is fixed
     'readline_callback_handler_install',
@@ -180,7 +195,6 @@ while (true) {
 
                     if (!isset($vars[$type])) {
                         // don't know that type right now, choose another function
-                        var_dump('Missing: ' . $type);
                         continue 2;
                     }
 
@@ -200,14 +214,23 @@ while (true) {
             }
         }
 
-        file_put_contents('generated.php', $code);
+        file_put_contents($generatedFile, $code);
 
         $output = array();
-        exec('php -f generated.php 1>stdout 2>stderr', $output, $return);
+        exec("php -f $generatedFile 1>$stdoutFile 2>$stderrFile", $output, $return);
 
-        $stderr = file_get_contents('stderr');
+        $stderr = file_get_contents($stderrFile);
 
         echo $stderr;
+
+        $lastLine = `tail -n 1 $stdoutFile`;
+        if (preg_match('(fatal error)i', $lastLine)) {
+            echo 'Last line of output:', "\n", $lastLine;
+        }
+        if (preg_match('(thrown in)', $lastLine)) {
+            echo 'Last ten lines of output:', "\n", `tail -n 10 $stdoutFile`;
+        }
+
         echo 'Return: ', $return, "\n";
 
         if ($return == 139) {
@@ -228,5 +251,5 @@ while (true) {
         }
     }
 
-    copy('generated.php', 'investigate_' . uniqid() . '_' . $type . '.php');
+    copy($generatedFile, $results . '/investigate_' . uniqid() . '_' . $type . '.php');
 }
