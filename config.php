@@ -22,7 +22,6 @@ $initCode = <<<'EOC'
 error_reporting(E_ALL);
 set_time_limit(5);
 ini_set('memory_limit', '256M');
-chdir({{ "'" . $GLOBALS['cwd'] . "'" }});
 
 // various integers
 $intMax = PHP_INT_MAX;
@@ -62,7 +61,7 @@ $arrayLarge = array_fill(0, {{ mt_rand(0, 1024 * 1024) }}, '*');
 $arrayStrange = array(-1 => -5, 100 => 17, 0 => 'a', 'a' => 0, 1 => 'b', 'b' => 1);
 
 // file resources
-$resourceFileTemp = fopen('php://temp', 'wr');
+$fileResourceTemp = fopen('php://temp', 'wr');
 
 // callbacks
 $callbackInvalid = "\0\1";
@@ -91,8 +90,8 @@ $initVars = array(
     'array' => array(
         'arrayEmpty', 'arrayLarge', 'arrayStrange',
     ),
-    'resource' => array(
-        'resourceFileTemp',
+    'fileResource' => array(
+        'fileResourceTemp',
     ),
     'callback' => array(
         'callbackInvalid', 'callbackString', 'callbackClosure',
@@ -124,3 +123,8 @@ $functions = array_diff($functions, array(
     // is fixed
     'readline_callback_handler_install',
 ));
+
+// Prefixes of functions operating on specific resources
+$resourceFunctionPrefixes = array(
+    'ftp', 'socket', 'proc', 'sem', 'shm', 'xml', 'xmlwriter', 'xmlrpc', 
+);

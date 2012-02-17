@@ -3,6 +3,7 @@
 error_reporting(E_ALL);
 
 require 'config.php';
+require 'TypeNormalizer.php';
 
 class InvokablePDO extends PDO {
     public function __invoke($query) {
@@ -12,26 +13,10 @@ class InvokablePDO extends PDO {
     }
 }
 
-function normalizeType($type, $function) {
-    // use a general number type instead of float/int (they are usually
-    // usable interchangably and we might catch some strange edge case
-    // bugs through this)
-    if ($type == 'float' || $type == 'int') {
-        return 'number';
-    }
-
-    // use specific resources
-    if ($type == 'resource'
-        && preg_match('/^(ftp|socket|proc|sem|shm|xml|xmlwriter|xmlrpc)_/', $function, $matches)
-    ) {
-        return $matches[1] . '_resource';
-    }
-
-    return $type;
-}
-
 $db = new InvokablePDO('sqlite:' . realpath('php_manual_en.sqlite'));
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+$typeNormalizer = new TypeNormalizer($resourceFunctionPrefixes);
 
 while (true) {
     while (true) {
@@ -65,7 +50,7 @@ while (true) {
                         $type = array_rand($vars);
                     }
 
-                    $type = normalizeType($type, $function);
+                    $type = $typeNormalizer->normalize($type, $function);
 
                     if (!isset($vars[$type])) {
                         // don't know that type right now, choose another function
@@ -76,7 +61,7 @@ while (true) {
                     $args[] = '$' . $applicableVars[array_rand($applicableVars)];
                 }
 
-                $returnType = normalizeType($functionInfo['return_type'], $function);
+                $returnType = $typeNormalizer->normalize($functionInfo['return_type'], $function);
                 $returnVarName = $returnType . '_' . $function . '_' . $i;
 
                 $code .= "\necho \"Running $i/$n ($function).\\n\";"
@@ -91,7 +76,7 @@ while (true) {
         file_put_contents($generatedFile, $code);
 
         $output = array();
-        exec("php -f $generatedFile 1>$stdoutFile 2>$stderrFile", $output, $return);
+        exec("chdir $cwd; php -f $generatedFile 1>$stdoutFile 2>$stderrFile", $output, $return);
 
         $stderr = file_get_contents($stderrFile);
 
