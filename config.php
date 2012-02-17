@@ -1,7 +1,10 @@
 <?php
 
+// location of sqlite file containing function information
+$sqliteFile = __DIR__ . '/php_manual_en.sqlite';
+
 // working directory to use (generated scripts might put files in there)
-$cwd     = __DIR__ . '/cwd';
+$cwd = __DIR__ . '/cwd';
 
 // directory to put resulting generated scripts in
 $results = __DIR__ . '/results';

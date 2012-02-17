@@ -13,7 +13,7 @@ class InvokablePDO extends PDO {
     }
 }
 
-$db = new InvokablePDO('sqlite:' . realpath('php_manual_en.sqlite'));
+$db = new InvokablePDO('sqlite:' . $sqliteFile);
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 $typeNormalizer = new TypeNormalizer($resourceFunctionPrefixes);
