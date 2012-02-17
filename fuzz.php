@@ -73,6 +73,9 @@ while (true) {
             }
         }
 
+        // ensure that cwd is still writable
+        chmod($cwd, 0755);
+
         file_put_contents($generatedFile, $code);
 
         $output = array();
