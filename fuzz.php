@@ -148,7 +148,7 @@ function normalizeType($type, $function) {
 
     // use specific resources
     if ($type == 'resource'
-        && preg_match('/^(ftp|socket|proc|sem|shm|xml|xmlwriter)_/', $function, $matches)
+        && preg_match('/^(ftp|socket|proc|sem|shm|xml|xmlwriter|xmlrpc)_/', $function, $matches)
     ) {
         return $matches[1] . '_resource';
     }
@@ -223,12 +223,16 @@ while (true) {
 
         echo $stderr;
 
-        $lastLine = `tail -n 1 $stdoutFile`;
-        if (preg_match('(fatal error)i', $lastLine)) {
-            echo 'Last line of output:', "\n", $lastLine;
-        }
-        if (preg_match('(thrown in)', $lastLine)) {
-            echo 'Last ten lines of output:', "\n", `tail -n 10 $stdoutFile`;
+        // Return code 255 means that some error occured, so print it
+        if ($return == 255) {
+            $lastLine = `tail -n 1 $stdoutFile`;
+
+            // if "thrown in" occurs (Exception) print a few more lines
+            if (preg_match('(thrown in)', $lastLine)) {
+                echo 'Last ten lines of output:', "\n", `tail -n 10 $stdoutFile`;
+            } else {
+                echo 'Last line of output:', "\n", $lastLine;
+            }
         }
 
         echo 'Return: ', $return, "\n";
