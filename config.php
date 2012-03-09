@@ -68,8 +68,9 @@ $fileResourceTemp = fopen('php://temp', 'wr');
 
 // callbacks
 $callbackInvalid = "\0\1";
-$callbackString = 'strlen';
+$callbackStrlen = 'strlen';
 $callbackClosure = function() { return 123; };
+$callbackByRef = function(&$a, &$b, &$c) { return 321; };
 
 // bools ...
 $boolTrue = true;
@@ -97,7 +98,7 @@ $initVars = array(
         'fileResourceTemp',
     ),
     'callback' => array(
-        'callbackInvalid', 'callbackString', 'callbackClosure',
+        'callbackInvalid', 'callbackStrlen', 'callbackClosure', 'callbackByRef',
     ),
     'bool' => array(
         'boolTrue', 'boolFalse',

@@ -79,7 +79,7 @@ while (true) {
         file_put_contents($generatedFile, $code);
 
         $output = array();
-        exec("chdir $cwd; php -f $generatedFile 1>$stdoutFile 2>$stderrFile", $output, $return);
+        exec("cd $cwd; php -f $generatedFile 1>$stdoutFile 2>$stderrFile", $output, $return);
 
         $stderr = file_get_contents($stderrFile);
 
